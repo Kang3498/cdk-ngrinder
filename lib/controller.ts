@@ -44,7 +44,10 @@ export class NgrinderController {
     securityGroup.addIngressRule(Peer.anyIpv4(), Port.tcp(16001))
     securityGroup.addIngressRule(Peer.anyIpv4(), Port.tcpRange(12000, 12100))
 
-    const userDataScript = readFileSync('./lib/user-data.sh', 'utf8')
+    const userDataScript = readFileSync('./lib/user-data.sh', 'utf8').replace(
+      /\r\n/g,
+      '\n'
+    )
 
     const controllerInstance = new Instance(scope, id + '-controller', {
       vpc,

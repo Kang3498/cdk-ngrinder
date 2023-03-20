@@ -9,4 +9,5 @@ new NgrinderStack(app, 'NgrinderCdkStack', {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
   },
+  vpcid: 'vpc-xxxxxxxxxxxxxxx',
 })
