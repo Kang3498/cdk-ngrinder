@@ -11,7 +11,7 @@ import { Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam'
 import { Construct } from 'constructs'
 
 export class NgrinderAgents {
-  constructor(scope: Construct, id: string, vpc: IVpc, controller: string) {
+  constructor(scope: Construct, id: string, vpc: IVpc, privateIp: string) {
     const cluster = new Cluster(scope, id + '-cluster', { vpc })
 
     const role = new Role(scope, id + '-role', {
@@ -29,7 +29,7 @@ export class NgrinderAgents {
     const container = taskDefinition.addContainer('NgrinderAgentContainer', {
       image: ContainerImage.fromRegistry('ngrinder/agent'),
       logging: LogDriver.awsLogs({ streamPrefix: 'ngrinder-agent' }),
-      command: [`${controller}:80`],
+      command: [`${privateIp}:80`],
       environment: {
         'jsse.enableSNIExtension': 'false',
       },
@@ -45,6 +45,9 @@ export class NgrinderAgents {
       cluster,
       taskDefinition,
       assignPublicIp: true,
+      vpcSubnets: {
+        subnets: [vpc.publicSubnets[0]]
+      }
     })
   }
 }

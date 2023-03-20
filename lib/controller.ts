@@ -15,9 +15,10 @@ import { Construct } from 'constructs'
 import { KeyPair } from 'cdk-ec2-key-pair'
 import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam'
 import { readFileSync } from 'fs'
+import { CfnOutput } from 'aws-cdk-lib'
 
 export class NgrinderController {
-  private eip: CfnEIP
+  private privateIp: string
   constructor(scope: Construct, id: string, vpc: IVpc) {
     const keyPair = new KeyPair(scope, id + '-keypair', {
       name: id + '-key',
@@ -39,10 +40,10 @@ export class NgrinderController {
       ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')
     )
 
-    securityGroup.addIngressRule(Peer.anyIpv4(), Port.tcp(22))
+    //securityGroup.addIngressRule(Peer.anyIpv4(), Port.tcp(22))
     securityGroup.addIngressRule(Peer.anyIpv4(), Port.tcp(80))
-    securityGroup.addIngressRule(Peer.anyIpv4(), Port.tcp(16001))
-    securityGroup.addIngressRule(Peer.anyIpv4(), Port.tcpRange(12000, 12100))
+    securityGroup.addIngressRule(Peer.ipv4(vpc.publicSubnets[0].ipv4CidrBlock), Port.tcp(16001))
+    securityGroup.addIngressRule(Peer.ipv4(vpc.publicSubnets[0].ipv4CidrBlock), Port.tcpRange(12000, 12100))
 
     const userDataScript = readFileSync('./lib/user-data.sh', 'utf8').replace(
       /\r\n/g,
@@ -56,20 +57,25 @@ export class NgrinderController {
       keyName: keyPair.keyPairName,
       securityGroup: securityGroup,
       role: role,
+      vpcSubnets: {
+        subnets: [vpc.publicSubnets[0]]
+      }
     })
     controllerInstance.addUserData(userDataScript)
+    this.privateIp = controllerInstance.instancePrivateIp
 
-    this.eip = new CfnEIP(scope, id + '-eip')
+    const eip = new CfnEIP(scope, id + '-eip')
     const eipAssociation = new CfnEIPAssociation(
       scope,
       id + '-eip-association',
       {
-        eip: this.eip.attrPublicIp,
+        eip: eip.attrPublicIp,
         instanceId: controllerInstance.instanceId,
       }
     )
+    new CfnOutput(scope, 'ngrinder address', { value: eip.attrPublicIp })
   }
-  getIp(): string {
-    return this.eip.attrPublicIp
+  getPrivateIp(): string {
+    return this.privateIp
   }
 }

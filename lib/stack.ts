@@ -14,13 +14,12 @@ export class NgrinderStack extends cdk.Stack {
     super(scope, id, props)
 
     const vpc = ec2.Vpc.fromLookup(this, id + '-vpc', {
-      //isDefault: true,
       vpcId: props.vpcid,
     })
 
     const controller = new NgrinderController(this, id + '-controller', vpc)
-    new NgrinderAgents(this, id + '-agent', vpc, controller.getIp())
+    new NgrinderAgents(this, id + '-agent', vpc, controller.getPrivateIp())
 
-    new CfnOutput(this, 'ngrinder address', { value: controller.getIp() })
+    
   }
 }
