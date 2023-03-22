@@ -1,0 +1,46 @@
+pipeline {
+  agent any
+  parameters {
+    string(name: 'PROJECT_PATH', defaultValue: 'Infra/FCMS')
+    string(name: 'ACCOUNT', defaultValue: '490472793553')
+    string(name: 'REGION', defaultValue: 'ap-northeast-2')
+    string(name: 'VPC_ID', defaultValue: 'vpc-01c272f54dc314fd9')
+  }
+  options {
+    disableConcurrentBuilds()
+  }
+  tools { nodejs 'node-14-15-0' }
+  stages {
+    stage('deploy') {
+      steps {
+        script {
+          def script = "./jenkins/jobs/ngrinder/script.sh"
+          def role_arn = "arn:aws:iam::490472793553:role/AWSProServeRole"
+          withAWS(region:"${params.REGION}",credentials:'aws-access')
+          {
+              dir("${params.PROJECT_PATH}"){
+                sh "aws sts assume-role --role-arn ${role_arn} --role-session-name aws_session --query 'Credentials' > tmp"                     
+                 def AWS_KEY =  sh (
+                  script: "jq -r .AccessKeyId tmp",
+                  returnStdout: true
+                ).trim()
+                def AWS_SECRET_KEY = sh (
+                  script: "jq -r .SecretAccessKey tmp",
+                  returnStdout: true
+                ).trim()
+                def SESSION_TOKEN = sh (
+                  script: "jq -r .SessionToken tmp",
+                  returnStdout: true
+                ).trim() 
+                withEnv(["AWS_ACCESS_KEY_ID=${AWS_KEY}","AWS_SECRET_ACCESS_KEY=${AWS_SECRET_KEY}", "AWS_SESSION_TOKEN=${SESSION_TOKEN}"]){
+                  sh "chmod +x ${script}"
+                  sh "${script} ${params.ACCOUNT} ${params.REGION} ${params.VPC_ID}"
+                }
+              }
+          }
+        }
+        cleanWs()
+      }
+    }
+  }
+}
