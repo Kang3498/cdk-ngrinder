@@ -45,7 +45,7 @@ export class NgrinderController {
     securityGroup.addIngressRule(Peer.ipv4(vpc.publicSubnets[0].ipv4CidrBlock), Port.tcp(16001))
     securityGroup.addIngressRule(Peer.ipv4(vpc.publicSubnets[0].ipv4CidrBlock), Port.tcpRange(12000, 12100))
 
-    const userDataScript = readFileSync('./lib/user-data.sh', 'utf8').replace(
+    const userDataScript = readFileSync('./lib/ngrinder/user-data.sh', 'utf8').replace(
       /\r\n/g,
       '\n'
     )
