@@ -3,10 +3,8 @@ set -e
 
 ACCOUNT=$1
 REGION=$2
-VPC_ID=$3
-
-echo "test"
+CIDR=$3
 
 npm ci
-npx cdk bootstrap --app="npx ts-node bin/ngrinder.ts" -c account=$ACCOUNT -c region=$REGION -c vpc_id=$VPC_ID
-npx cdk deploy  --app="npx ts-node bin/ngrinder.ts" --require-approval never -c account=$ACCOUNT -c region=$REGION -c vpc_id=$VPC_ID
+npx cdk bootstrap --app="npx ts-node bin/ngrinder.ts" -c account=$ACCOUNT -c region=$REGION -c cidr=$CIDR
+npx cdk deploy  --app="npx ts-node bin/ngrinder.ts" --require-approval never -c account=$ACCOUNT -c region=$REGION -c cidr=$CIDR

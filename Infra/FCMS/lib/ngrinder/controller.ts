@@ -1,35 +1,26 @@
 import {
-  CfnEIP,
-  CfnEIPAssociation,
   Instance,
   InstanceClass,
   InstanceSize,
   InstanceType,
-  IVpc,
   MachineImage,
   Peer,
   Port,
-  SecurityGroup,
+  SecurityGroup, Vpc,
 } from 'aws-cdk-lib/aws-ec2'
 import { Construct } from 'constructs'
 import { KeyPair } from 'cdk-ec2-key-pair'
 import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam'
 import { readFileSync } from 'fs'
-import { CfnOutput } from 'aws-cdk-lib'
+import {aws_elasticloadbalancingv2 as elbv2, aws_elasticloadbalancingv2_targets as elbv2_targets, CfnOutput} from 'aws-cdk-lib'
 
 export class NgrinderController {
   private privateIp: string
-  constructor(scope: Construct, id: string, vpc: IVpc) {
+  constructor(scope: Construct, id: string, vpc: Vpc) {
     const keyPair = new KeyPair(scope, id + '-keypair', {
       name: id + '-key',
       description: '',
       storePublicKey: true,
-    })
-    keyPair.grantReadOnPublicKey
-
-    const securityGroup = new SecurityGroup(scope, id + '-sg', {
-      vpc,
-      allowAllOutbound: true,
     })
 
     const role = new Role(scope, id + '-role', {
@@ -40,10 +31,30 @@ export class NgrinderController {
       ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')
     )
 
-    //securityGroup.addIngressRule(Peer.anyIpv4(), Port.tcp(22))
-    securityGroup.addIngressRule(Peer.anyIpv4(), Port.tcp(80))
-    securityGroup.addIngressRule(Peer.ipv4(vpc.publicSubnets[0].ipv4CidrBlock), Port.tcp(16001))
-    securityGroup.addIngressRule(Peer.ipv4(vpc.publicSubnets[0].ipv4CidrBlock), Port.tcpRange(12000, 12100))
+    const lbSg = new SecurityGroup(scope, id + '-lb-sg', {
+      vpc,
+      allowAllOutbound: true,
+    })
+
+    const lb = new elbv2.ApplicationLoadBalancer(scope, 'LB', {
+      vpc,
+      internetFacing: true,
+      securityGroup: lbSg
+    });
+
+    const listener = lb.addListener('Listener', {
+      port: 80,
+      open: true,
+    });
+
+    const controllerSg = new SecurityGroup(scope, id + '-sg', {
+      vpc,
+      allowAllOutbound: true,
+    })
+    controllerSg.addIngressRule(lbSg, Port.tcp(80))
+    controllerSg.addIngressRule(Peer.ipv4(vpc.privateSubnets[0].ipv4CidrBlock), Port.tcp(80))
+    controllerSg.addIngressRule(Peer.ipv4(vpc.privateSubnets[0].ipv4CidrBlock), Port.tcp(16001))
+    controllerSg.addIngressRule(Peer.ipv4(vpc.privateSubnets[0].ipv4CidrBlock), Port.tcpRange(12000, 12100))
 
     const userDataScript = readFileSync('./lib/ngrinder/user-data.sh', 'utf8').replace(
       /\r\n/g,
@@ -53,27 +64,28 @@ export class NgrinderController {
     const controllerInstance = new Instance(scope, id + '-controller', {
       vpc,
       instanceType: InstanceType.of(InstanceClass.T3, InstanceSize.LARGE),
-      machineImage: MachineImage.latestAmazonLinux(),
+      machineImage: MachineImage.latestAmazonLinux2(),
       keyName: keyPair.keyPairName,
-      securityGroup: securityGroup,
+      securityGroup: controllerSg,
       role: role,
       vpcSubnets: {
-        subnets: [vpc.publicSubnets[0]]
+        subnets: [vpc.privateSubnets[0]]
       }
     })
     controllerInstance.addUserData(userDataScript)
+
     this.privateIp = controllerInstance.instancePrivateIp
 
-    const eip = new CfnEIP(scope, id + '-eip')
-    const eipAssociation = new CfnEIPAssociation(
-      scope,
-      id + '-eip-association',
-      {
-        eip: eip.attrPublicIp,
-        instanceId: controllerInstance.instanceId,
+    listener.addTargets('ApplicationFleet', {
+      port: 80,
+      targets: [
+        new elbv2_targets.InstanceIdTarget(controllerInstance.instanceId),
+      ],
+      healthCheck: {
+        enabled: true,
+        path: '/login'
       }
-    )
-    new CfnOutput(scope, 'ngrinder address', { value: eip.attrPublicIp })
+    });
   }
   getPrivateIp(): string {
     return this.privateIp

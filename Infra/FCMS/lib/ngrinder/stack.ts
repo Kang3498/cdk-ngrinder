@@ -1,25 +1,20 @@
 import * as cdk from 'aws-cdk-lib'
 import { Construct } from 'constructs'
-import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import { NgrinderController } from './controller'
 import { NgrinderAgents } from './agents'
-import { CfnOutput } from 'aws-cdk-lib'
+import {NgrinderVpc} from './vpc'
 
 interface NgrinderStackProps extends cdk.StackProps {
-  vpcid: string
+  cidr: string
 }
 
 export class NgrinderStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: NgrinderStackProps) {
     super(scope, id, props)
 
-    const vpc = ec2.Vpc.fromLookup(this, id + '-vpc', {
-      vpcId: props.vpcid,
-    })
+    const vpc = new NgrinderVpc(this, id + '-vpc', props.cidr)
 
-    const controller = new NgrinderController(this, id + '-controller', vpc)
-    new NgrinderAgents(this, id + '-agent', vpc, controller.getPrivateIp())
-
-    
+    const controller = new NgrinderController(this, id + '-controller', vpc.getVpc())
+    new NgrinderAgents(this, id + '-agent', vpc.getVpc(), controller.getPrivateIp())
   }
 }

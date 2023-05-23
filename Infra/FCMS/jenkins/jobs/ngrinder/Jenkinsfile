@@ -4,7 +4,7 @@ pipeline {
     string(name: 'PROJECT_PATH', defaultValue: 'Infra/FCMS')
     string(name: 'ACCOUNT', defaultValue: '490472793553')
     string(name: 'REGION', defaultValue: 'ap-northeast-2')
-    string(name: 'VPC_ID', defaultValue: 'vpc-01c272f54dc314fd9')
+    string(name: 'CIDR', defaultValue: '10.0.0.0/16')
   }
   options {
     disableConcurrentBuilds()

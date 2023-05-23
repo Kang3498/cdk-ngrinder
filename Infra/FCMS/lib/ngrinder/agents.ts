@@ -41,12 +41,11 @@ export class NgrinderAgents {
       name: UlimitName.NOFILE,
     })
 
-    new FargateService(scope, id + '-service', {
+    new FargateService(scope, id + '-svc', {
       cluster,
       taskDefinition,
-      assignPublicIp: true,
       vpcSubnets: {
-        subnets: [vpc.publicSubnets[0]]
+        subnets: [vpc.privateSubnets[0]]
       }
     })
   }
